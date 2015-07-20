@@ -1,7 +1,7 @@
 # Installation
 Put 'glvrdPlugin' folder into ckeditor plugins folder (e.g. ckeditor/plugins - just like in this repo)  
 
-# Requirements
+# Requirementsysq
 jQuery
 
 # Demo

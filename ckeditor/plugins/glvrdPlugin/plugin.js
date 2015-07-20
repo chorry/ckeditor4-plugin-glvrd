@@ -1,8 +1,34 @@
 var glvrdPlugin_url = 'http://api.glvrd.ru/v1/glvrd.js';
 
-$.getScript(glvrdPlugin_url, function () {
-    console.log("Script loaded but not necessarily executed.");
-});
+if (!window.glvrd) {
+    $.getScript(glvrdPlugin_url, function () { console.log ('api is loaded' ) });
+}
+
+
+function getCaretCharacterOffsetWithin(element) {
+    var caretOffset = 0;
+    var doc = element.ownerDocument || element.document;
+    var win = doc.defaultView || doc.parentWindow;
+    var sel;
+    if (typeof win.getSelection != "undefined") {
+        sel = win.getSelection();
+        if (sel.rangeCount > 0) {
+            var range = win.getSelection().getRangeAt(0);
+            var preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(element);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            caretOffset = preCaretRange.toString().length;
+        }
+    } else if ( (sel = doc.selection) && sel.type != "Control") {
+        var textRange = sel.createRange();
+        var preCaretTextRange = doc.body.createTextRange();
+        preCaretTextRange.moveToElementText(element);
+        preCaretTextRange.setEndPoint("EndToEnd", textRange);
+        caretOffset = preCaretTextRange.text.length;
+    }
+    return caretOffset;
+}
+
 
 var glvrdPlugin =
 {
@@ -31,15 +57,22 @@ var glvrdPlugin =
             }
         });
     },
-    setEditor: function(editor){
-        this.editor = editor;
-    },
+
     setText: function(text) {
         this.editor.loadSnapshot(text);
     },
 
+    stripRuleTags: function(text)
+    {
+        var reg = /(<em[^>]*data-rule="r\d+"[^>]*>).+?(<\/em>)/g;
+        return text.replace(reg,'');
+    },
+
     proofRead: function(data) {
-        window.glvrd.proofread(data, function (result) {
+
+        window.glvrd.proofread(
+            glvrdPlugin.stripRuleTags( data ),
+            function (result) {
             var offset = 0;
             $.each(result.fragments, function (k, v) {
                 var ruleName = 'r' + k;
@@ -63,20 +96,25 @@ var glvrdPlugin =
         var ckTextFrameName = CKEDITOR.instances[Object.keys(CKEDITOR.instances)[0]].id + '_contents iframe';
         var target = $('#' + ckTextFrameName).contents();
         $.each(ruleset, function(k,v){
-            target.find('em').filter('[data-rule="'+ k + '"]').on('mouseenter', function(e){
+            var emTarget = target.find('em').filter('[data-rule="'+ k + '"]');
+            emTarget.on('mouseenter', function(e){
                 $('#'+glvrdPlugin.targetWnd.name).html( ruleset[k].name );
                 $('#'+glvrdPlugin.targetWnd.description).html( ruleset[k].description );
                 $(this).addClass('glvrd-underline-active');
             }).on('mouseleave', function(e) {
                 $(this).removeClass('glvrd-underline-active');
             });
-            glvrdPlugin.trackChanges(target,v);
+            glvrdPlugin.trackChanges(emTarget,v);
         });
     },
-    trackChanges: function(target,item) {
-        target.find('body').on('input', function(e){
-            console.log('tracking text change..');
+    trackChanges: function(target,ruleItem) {
+        target.on('DOMSubtreeModified', function(e){
+                //console.debug( this.innerHTML );
         });
+    },
+    // todo: fire partial text update if no changes has been made to specified target within X seconds
+    textTimeUpdate: function(time, position) {
+
     },
     inlineHints: function (target, data) {
 
